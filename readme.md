@@ -1,5 +1,5 @@
 # STged
-R package supporting the paper **"EnDecon: cell type deconvolution of spatiallyresolved transcriptomics data via ensemble learning"**. 
+R package supporting the paper **"STged: Gene expression deconvolution for spatial transcriptomic data"**. 
 
 To simultaneously take both spatial correlation structure and gene expression similarity into account, we propose a graph- and prior-guided Gene Expression Deconvolution method on SRT data (STged).
 STged is based on a non-negative least-squares regression framework, assuming that gene expression levels of each spot are expressed as a weighted linear combination of cell type-specific 
