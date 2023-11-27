@@ -5,4 +5,4 @@ gene expression and corresponding cell type proportions. The unique features of 
 through a spatial neighborhood graph and to account for gene expression similarity through integrating prior of cell-type specific gene expression prior information from scRNA-seq data.  As a result, 
 STged can exploit both spatial correlation structure and gene expression similarity to achieve accurate and robust gene expression deconvolution of SRT data.
 ![alt
-text](https://github.com/TJJjiajuan/STged/new/main/docs/Figure1.png?raw=true)
+text](https://github.com/TJJjiajuan/STged/new/main/docs/STged_mian.PNG?raw=true)
