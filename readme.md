@@ -35,13 +35,24 @@ devtools::install_github("TJJjiajuan/STged")
 
 ## Run the example
 ``` buildoutcfg
-data("PDAC.data")
-##### path on Windows platform on our computer
-python_env <- 'C:/Users/visitor01/.conda/envs/stged/python.exe'
-# We run STged as a toy examples
+#load the input data set
+data("PDAC")
 
+##### path on the Windows platform on our computer
+python_env <- 'C:/Users/visitor01/.conda/envs/stged/python.exe'
+
+# We run STged as a toy examples
+model.est = STged(sc_exp = sc_exp, sc_label = sc_label, 
+                  spot_exp = spot_exp, spot_loc = spot_loc,  beta = beta,
+                  gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
+                  nUMI = 100, verbose = FALSE, clean.only = FALSE, python_env = python_env,
+                  truncate = TRUE, qt = 0.01,
+                  knei = 6,  methodL =  "Hex",coord_type = "grid", quantile_prob_bandwidth = 1/3,
+                  lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,  rho = 1,  rho.incr = 1.05,
+                  rho.max = 1e10, maxiter = 20,  epsilon = 1e-5)
 
 ```
+
 ## Tutorials
 We also give a small example of how to run STged. Here we use the PDAC data ser as an example. There are two ways to run STged, (1) run STged step by step, (2) run the STged by a main function.
 - [PDAC with `STged`](https://github.com/TJJjiajuan/STged/blob/main/docs/Demo_STged_PDAC.html)
