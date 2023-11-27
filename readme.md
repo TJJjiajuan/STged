@@ -38,15 +38,12 @@ devtools::install_github("TJJjiajuan/STged")
 data("PDAC.data")
 ##### path on Windows platform on our computer
 python_env <- 'C:/Users/visitor01/.conda/envs/stged/python.exe'
-# We run
-Results.Deconv <- EnDecon_individual_methods(MVC.reference, MVC.reference.cell.label,
-                  MVC.ST, MVC.ST.coor,  python_env = python_env, use_gpu = FALSE,
-                  RCTD.CELL_MIN_INSTANCE = 10, gene_det_in_min_cells_per = 0,
-                  expression_threshold = 0, nUMI = 1, DWLS.is_select_DEGs = FALSE,
-                  SpatialDWLS.is_select_DEGs = FALSE)
-ensemble.results <- solve_ensemble(Results.Deconv)
+# We run STged as a toy examples
+
+
 ```
 ## Tutorials
+We also give a small example of how to run STged. Here we use the PDAC data ser as an example. There are two ways to run STged, (1) run STged step by step, (2) run the STged by a main function.
 - [PDAC with `STged`](https://github.com/TJJjiajuan/STged/blob/main/docs/Demo_STged_PDAC.html)
   
 Please do not hesitate to contact Dr. Tu at tujiajuan@163.com
