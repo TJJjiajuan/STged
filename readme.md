@@ -48,8 +48,8 @@ model.est = STged(sc_exp, sc_label, spot_exp, spot_loc, beta,
 ```
 
 ## Tutorials
-We also give a small example of how to run STged. Here we use the PDAC data ser as an example. There are two ways to run STged, (1) run STged step by step, (2) run the STged by a main function.
-- [PDAC with `STged`](https://github.com/TJJjiajuan/STged/blob/main/docs/Demo_STged_FISH.Rmd)
+We also give a small example of how to run STged. Here we use the simulated FISHplus data set as an example. There are two ways to run STged, (1) run STged step by step, (2) run the STged by a main function.
+- [FISHplus with `STged`](https://github.com/TJJjiajuan/STged/blob/main/docs/Demo_STged_FISH.Rmd)
   
 Please do not hesitate to contact Dr. Tu at tujiajuan@163.com
 to seek any clarifications regarding any content or operation of the
