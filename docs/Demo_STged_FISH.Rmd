@@ -12,7 +12,7 @@ author: Jia-Juan Tu
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-##Set the size of the figures
+## Set the size of the figures
 ```{r, fig.height=7, fig.width=6, size="small", fig.align="center"}
 
 ```
