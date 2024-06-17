@@ -1,258 +1,232 @@
 
+#' Data Processing for Spatial and Single-cell Transcriptomics.
+#' Processes and cleans spatial transcriptomics (SRT) and single-cell RNA-seq (scRNA-seq)
+#' data by filtering genes and cells/spots based on specified criteria. It aligns the
+#' gene expression data between scRNA-seq and SRT datasets by retaining only the common genes.
+#' @param sc_exp A matrix of scRNA-seq data (genes x cells) containing expression counts.
+#' @param sc_label A vector of labels corresponding to the cells in the sc_exp matrix.
+#' @param spot_exp A matrix of spatial transcriptomics data (genes x spots) containing expression counts.
+#' @param spot_loc A matrix of coordinates for each spot in the spot_exp matrix.
+#' @param gene_det_in_min_cells_per Minimum percentage of cells in which a gene must be detected.
+#' @param expression_threshold The minimum expression level a gene must exhibit to be considered expressed.
+#' @param nUMI Minimum number of UMIs (unique molecular identifiers) required for a cell/spot to be included.
+#' @param verbose Logical; if TRUE, detailed processing information will be printed.
+#' @param depthscale A scaling factor used for normalization (default is 100,000).
+#' @param clean.only Logical; if TRUE, only performs data cleaning without additional normalization.
+#' @return A list containing filtered and processed scRNA-seq and SRT data:
+#'   - `sc_exp`: Filtered scRNA-seq expression matrix.
+#'   - `sc_label`: Corresponding cell labels for the filtered scRNA-seq data.
+#'   - `spot_exp`: Filtered SRT expression matrix.
+#'
+#' #data(Fishplus)
+#' #datax = data_process(sc_exp = sc_exp, sc_label = sc_label, spot_exp = spot_exp, spot_loc = spot_loc)
 
-#' This function focuses on cleaning scRNA-seq and SRT datasets.
-#' @param sc_exp scRNA-seq matrix, genes * cells. The format should be raw-counts. The matrix need include gene names and cell names.
-#' @param sc_label cell type information. The cells are need be divided into multiple category.
-#' @param spot_exp SRT gene expression matrix, genes * spots. The format should be raw counts. The matrix need include gene names and spot names.
-#' @param spot_loc coordinate matrix, spots * coordinates. The matrix need include spot names and coordinate name (x, y).
-#' @param gene_det_in_min_cells_per a floor variable. minimum percent of genes that need to be detected in a cell.
-#' @param expression_threshold a floor variable. Threshold to consider a gene expressed.
-#' @param nUMI a floor variable. 	minimum of read count that need to be detected in a cell or spot.
-#' @param verbose a logical variable that defines whether to print the processing flow of data process.
-#'
-#' @return a list includes processed scRNA-seq matrix, cell type, stRNA-seq matrix.
-#'
-#' @examples
-#' data("PDAC")
-#' datax = data_process(sc_exp = sc_exp, sc_label = sc_label, spot_exp = spot_exp, spot_loc = spot_loc)
-#'
-#' @export
-#'
 data_process <- function(sc_exp, sc_label, spot_exp, spot_loc,
                          gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
-                         nUMI = 100, verbose = FALSE, depthscale = 1,
-                         clean.only = FALSE){
+                         nUMI = 100, verbose = FALSE, depthscale = 1e6, clean.only = TRUE) {
+  # Ensure correct dimensions of inputs
+  if(ncol(sc_exp) != length(sc_label)) {
+    stop("Mismatch between number of cells in sc_exp and length of sc_label.")
+  }
+  if(ncol(spot_exp) != nrow(spot_loc)) {
+    stop("Mismatch between number of spots in spot_exp and number of rows in spot_loc.")
+  }
 
-  #gene by cell matrix
-  if(ncol(sc_exp) != length(sc_label))
-    stop("Require cell labels!")
+  # Process scRNA-seq data
+  sc_matrix <- cleanCounts(sc_exp, gene_det_in_min_cells_per = gene_det_in_min_cells_per,
+                           expression_threshold = expression_threshold, nUMI = nUMI,
+                           verbose = verbose, depthscale = depthscale, clean.only = clean.only)
+  sc_matrix <- as.matrix(sc_matrix)
+  ind <- match(colnames(sc_matrix), colnames(sc_exp))
+  sc_label <- sc_label[ind]
 
-  if(ncol(spot_exp) != nrow(spot_loc))
-    stop("Require x , y coordinations")
+  # Process SRT data
+  st_matrix <- cleanCounts(spot_exp, gene_det_in_min_cells_per = gene_det_in_min_cells_per,
+                           expression_threshold = expression_threshold, nUMI = nUMI,
+                           verbose = verbose, depthscale = depthscale, clean.only = clean.only)
+  st_matrix <- as.matrix(st_matrix)
+  ind_sp <- match(colnames(st_matrix), colnames(spot_exp))
+  spot_loc <- spot_loc[ind_sp, ]
 
-  #### scRNA-seq data process
-  sc_matrix = cleanCounts(sc_exp, gene_det_in_min_cells_per = gene_det_in_min_cells_per,
-                          expression_threshold = expression_threshold, nUMI = nUMI,
-                          verbose = verbose,depthscale = depthscale,
-                          clean.only = clean.only)
+  # Find common genes between datasets
+  com_gene <- intersect(rownames(sc_matrix), rownames(st_matrix))
+  sc_exp <- sc_matrix[com_gene,]
+  st_exp <- st_matrix[com_gene,]
 
-
-
-  sc_matrix= as.matrix(sc_matrix)
-  ind = match(colnames(sc_matrix), colnames(sc_exp))
-  sc_label = sc_label[ind]
-
-
-  #### SRT data process
-  st_matrix = cleanCounts(spot_exp, gene_det_in_min_cells_per = gene_det_in_min_cells_per,
-                          expression_threshold = expression_threshold, nUMI = nUMI,
-                          verbose = verbose,depthscale = depthscale,
-                          clean.only = clean.only)
-
-  st_matrix= as.matrix(st_matrix)
-  ind_sp = match(colnames(st_matrix), colnames(spot_exp))
-  spot_loc = spot_loc[ind_sp, ]
-
-  #### find common genes
-  com_gene = intersect(rownames(sc_matrix),rownames(st_matrix))
-  sc_exp = sc_matrix[com_gene,]
-  st_exp = st_matrix[com_gene,]
-
-  ### rechecking nUMI
+  # Re-check and filter by nUMI counts
   index_sc <- colSums(sc_exp) >= nUMI
-  sc_exp_filter <- sc_exp[,index_sc]
+  sc_exp_filter <- sc_exp[, index_sc]
   sc_label_filter <- sc_label[index_sc]
 
   index_st <- colSums(st_exp) >= nUMI
-  st_exp_filter = st_exp[,index_st]
+  st_exp_filter <- st_exp[, index_st]
   spot_loc_filter <- spot_loc[index_st,]
 
+  # Compile and return the database of cleaned data
   database <- list(sc_exp = sc_exp_filter, sc_label = sc_label_filter,
                    spot_exp = st_exp_filter, spot_loc = spot_loc_filter)
   return(database)
 }
 
 
-cleanCounts <- function (counts, gene_det_in_min_cells_per = 0.01,
-                         expression_threshold = 0 ,
-                         nUMI = 100, verbose = FALSE, depthscale = 1,
-                         clean.only = FALSE) {
+cleanCounts <- function(counts, gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
+                        nUMI = 100, verbose = FALSE, depthscale = 1, clean.only = FALSE) {
 
-  #counts: gene by cells matrix
+  if (!inherits(counts, "matrix")) stop("The 'counts' must be a matrix.")
+  n = ncol(counts)
+  if (verbose) message("Starting with ", n, " cells.")
 
-  if (clean.only){
+  # Selecting genes detected in sufficient number of cells
+  sufficient_cells = rowSums(counts > expression_threshold) > gene_det_in_min_cells_per * n
+  counts = counts[sufficient_cells, ]
 
-    n = ncol(counts)
+  # Filtering cells based on total UMI counts after gene filtering
+  sufficient_umi = colSums(counts) > nUMI
+  counts = counts[, sufficient_umi]
 
-    ##### select of the genes
-    filter_index_genes = Matrix::rowSums(counts > expression_threshold) >
-      gene_det_in_min_cells_per*n
-
-    #### filter the cell
-    filter_index_cells = Matrix::colSums(counts[filter_index_genes,] >
-                                           expression_threshold) > nUMI
-
-    x = counts[ filter_index_genes,filter_index_cells]
-
-    if (verbose) {
-      message("Resulting matrix has ", ncol(counts), " cells and ", nrow(counts), " genes")
-    }
-
-    return(x)
-
+  if (clean.only) {
+    if (verbose) message("Matrix filtered without scaling. Dimension: ", dim(counts))
+    return(counts)
   } else {
-
-    n = ncol(counts)
-
-    ##### select of the genes
-    filter_index_genes = Matrix::rowSums(counts > expression_threshold) >
-      gene_det_in_min_cells_per*n
-
-    #### filter the cell
-    filter_index_cells = Matrix::colSums(counts[filter_index_genes,] >
-                                           expression_threshold) >nUMI
-
-    x = counts[ filter_index_genes,filter_index_cells]
-
-
-    sf <- colSums(x)/median(colSums(x))
-
-    return(log(sweep(x, 2, sf, '/')*depthscale+1))
-
+    sf = colSums(counts) / median(colSums(counts))
+    scaled_counts = log(sweep(counts, 2, sf, FUN = "/") * depthscale + 1)
+    if (verbose) message("Matrix scaled and log-transformed. Dimension: ", dim(scaled_counts))
+    return(scaled_counts)
   }
-
 }
 
+
+
 ### Winsorize expression values to prevent outliers
-winsorize <- function (x, qt=.05, both = FALSE) {
+winsorize <- function(x, qt = 0.05, both = FALSE) {
+  if (length(qt) != 1 || qt < 0 || qt > 0.5) stop("Bad value for quantile threshold")
 
-  if(length(qt) != 1 || qt < 0 ||
-     qt > 0.5) {
-    stop("bad value for quantile threashold")
-  }
-
-  lim <- quantile(x, probs=c(qt, 1-qt))
-
-  if(both){
-
-    x[ x < lim[1] ] <- lim[1]
-    x[ x > lim[2] ] <- lim[2]
-
-  }else{
-
-    x[ x > lim[2] ] <- lim[2]
-
+  lim <- quantile(x, probs = c(qt, 1 - qt))
+  if (both) {
+    x[x < lim[1]] <- lim[1]
+    x[x > lim[2]] <- lim[2]
+  } else {
+    x[x > lim[2]] <- lim[2]
   }
   return(x)
 }
 
 
-
-
-### construct cell-type-specific gene expression data
-
-
-#' This function focuses on cleaning scRNA-seq and SRT datasets.
-#' @param sc_exp scRNA-seq matrix, genes * cells. The format should be raw-counts. The matrix need include gene names and cell names.
-#' @param sc_label cell type information. The cells are need be divided into multiple category.
+# Function to create cell-type-specific gene expression data
+#' Create Grouped Expression Matrix by Cell Type
+#'
+#' This function computes the mean expression for each cell type from scRNA-seq data.
+#' It groups cells by their specified type and calculates the mean of all cells within
+#' each type to create a summarized expression profile per cell type.
+#' @param sc_exp A matrix of single-cell RNA-seq data (genes x cells), containing expression counts.
+#' @param sc_label A vector of labels corresponding to the cells in the sc_exp matrix.
+#' @return A matrix of mean expression values for each cell type (genes x cell types).
+#' # Assuming `sc_data` is a matrix of gene expression data and `cell_types` is a vector of cell type labels
 #' @examples
-#' data("PDAC")
+#' data(Fishplus)
 #' refmu = create_group_exp(sc_exp,sc_label)
 #' @export
 #'
-create_group_exp <- function(sc_exp,sc_label) {
+create_group_exp <- function(sc_exp, sc_label) {
+  # Identify unique cell types and sort them
+  cell_types <- sort(unique(sc_label))
+  # Initialize a list to hold indices for each cell type
+  group_indices <- vector("list", length(cell_types))
 
-  #sc_exp,  single cell gene expression datasets
-  #sc_label,  cell annotation of the single cells of the reference
-  ##group cells
-
-  cell_type = sort(unique(sc_label))
-  group = list()
-  for(i in 1:length(cell_type)){
-    temp_use <- which(sc_label == cell_type[i])
-    names(temp_use) <- NULL
-    group[[i]] <- temp_use
+  # Populate the list with indices of cells for each cell type
+  for (i in seq_along(cell_types)) {
+    group_indices[[i]] <- which(sc_label == cell_types[i])
   }
-  sc_group_exp = sapply(group,function(x) Matrix::rowMeans(as.matrix(sc_exp[,x])))
 
-  sc_group_exp = as.matrix(sc_group_exp)
-  colnames(sc_group_exp) = cell_type
-  return(sc_group_exp)
+  # Compute mean expression across cells for each cell type
+  group_expression <- sapply(group_indices, function(indices) {
+    rowMeans(sc_exp[, indices], na.rm = TRUE)
+  }, simplify = "array")
+
+  # Set column names as the cell type names
+  colnames(group_expression) <- cell_types
+
+  return(as.matrix(group_expression))
 }
 
-#### the similarity matrix matrix based on the spot location information
 
-
-
-#' This function focuses on cleaning scRNA-seq and SRT datasets.
-#' @param spot_exp stRNA-seq matrix, genes * spots. The format should be raw-counts. The matrix need include gene names and spot names.
-#' @param spot_loc coordinate matrix, spots * coordinates. The matrix need include spot names and coordinate name (x, y).
-#' @param k number of neighbor spots for construct spatial neighboring graph, details refer to Squidpy.
-#' @param method the method used to construct spatial neighboring graph, details refer to Squidpy.
-#' @param coord_type  grid coordinates, details refer to Squidpy.
-#' @param quantile_prob_bandwidth selection of bandwidth of the spatial kernel of each spot.
+# Function to calculate the weighted distance matrix based on spot location
+#' Calculate Weighted Adjacency Matrix for Spatial Data
+#'
+#' This function computes the weighted adjacency matrix for spatial data based on the
+#' connectivity and distances between spots. It supports only the 'Hex' method for
+#' defining spatial neighbors in a hexagonal grid system.
+#'
+#' @param spot_loc A matrix of coordinates for each spot, typically named (x, y).
+#' @param spot_exp A matrix of spatial transcriptomics data (genes x spots) containing expression counts.
+#' @param k Integer; number of neighboring spots to consider when constructing the spatial neighboring graph.
+#' @param quantile_prob_bandwidth The bandwidth quantile for weighting the adjacency matrix.
+#' @param method Method used for constructing the spatial neighboring graph. Currently supports only 'Hex'.
+#' @param coord_type Type of coordinates system used, typically 'grid' for standard spatial transcriptomics data.
+#' @return A list containing:
+#'   - `dis_weight`: The Gaussian-weighted adjacency matrix based on spatial distances and connectivity.
+#'   - `weight_adj`: The unweighted adjacency matrix derived from spatial connectivity alone.
+#'
+#' @examples
+#' # Assuming `coordinates` is a matrix of spatial coordinates and `expression` is the corresponding expression data
+#' data(Fishplus)
+#' weights <- dis_weight(spot_loc = spot_loc, spot_exp = spot_exp, k = 6, method = "Hex", coord_type = "grid")
 #' @export
-dis_weight = function(spot_loc = spot_loc ,spot_exp = spot_exp, k = 6,
-                      quantile_prob_bandwidth = 1/3, method = "Hex",
-                      coord_type = "grid"){
-
-  if(method == "Hex"){
-
-    anndata <- reticulate::import("anndata")
-    np <- reticulate::import("numpy")
-    sq <- reticulate::import("squidpy")
-
-    obsm.meta <- list(spatial = as.matrix(as.data.frame(spot_loc)))
-
-    anndata_ST <- anndata$AnnData(X = t(spot_exp) , obsm = obsm.meta)
-
-    sq$gr$spatial_neighbors(adata = anndata_ST,
-                            spatial_key = 'spatial',
-                            coord_type = coord_type,
-                            n_neighs = as.integer(k))
-
-    mat_adj <- as.matrix(anndata_ST$obsp['spatial_connectivities'])
-
-    rownames( mat_adj) <- rownames(spot_loc)
-    colnames( mat_adj) <- rownames(spot_loc)
-    mat_adj = mat_adj+t(mat_adj)
-    diag( mat_adj) = 0
-    mat_adj[mat_adj!=0] = 1
-
-  }else{
-
-    print("Please chose Hex")
+#'
+dis_weight <- function(spot_loc, spot_exp, k = 6, quantile_prob_bandwidth = 1/3, method = "Hex", coord_type = "grid") {
+  if (method != "Hex") {
+    stop("Unsupported method: Please choose 'Hex'")
   }
 
-  #add weight to each edges
-  dis_euc  = dist(spot_loc , method = "euclidean")^2
-  dis_euc = as.matrix(dis_euc)
+  anndata <- reticulate::import("anndata")
+  np <- reticulate::import("numpy")
+  sq <- reticulate::import("squidpy")
 
-  weight_network <-  mat_adj * dis_euc
+  # Convert location data into a suitable format for Anndata
+  obsm.meta <- list(spatial = as.matrix(as.data.frame(spot_loc)))
 
+  # Create an AnnData object using numpy's transpose function for expression data
+  anndata_ST <- anndata$AnnData(X = t(spot_exp), obsm = obsm.meta)
+
+  # Use Squidpy to compute spatial neighbors
+  sq$gr$spatial_neighbors(adata = anndata_ST, spatial_key = 'spatial', coord_type = coord_type, n_neighs = as.integer(k))
+
+  # Extract and symmetrize the adjacency matrix
+  mat_adj <- as.matrix(anndata_ST$obsp[['spatial_connectivities']])
+
+
+  colnames( mat_adj)  <- rownames( mat_adj) <- rownames(spot_loc)
+  mat_adj <- mat_adj + t(mat_adj)
+  diag(mat_adj) <- 0
+
+  # Compute squared Euclidean distances between spots
+  dis_euc <- as.matrix(dist(spot_loc, method = "euclidean")^2)
+  # Apply distances to the adjacency matrix
+  weight_network <- mat_adj * dis_euc
+
+  # Compute weights using a quantile of the non-zero distances
   bandwidth_selecting <- apply(weight_network, 2, non_zeros_quantile, prob = quantile_prob_bandwidth)
-
   similarity_network_Gaussian <- exp(-sweep(weight_network, 2, bandwidth_selecting, "/")) * mat_adj
 
+  # Ensure symmetry in the final weighted matrix
   similarity_network_Gaussian_sys <- 0.5 * (similarity_network_Gaussian + t(similarity_network_Gaussian))
 
-
-  return(list(dis_weight = similarity_network_Gaussian_sys,
-              weight_adj = mat_adj))
+  return(list(dis_weight = similarity_network_Gaussian_sys, weight_adj = mat_adj))
 }
 
-
-non_zeros_quantile <- function(x, prob){
-  if(sum(x == 0) == length(x)){
-    values <- 1
-  }else{
-    x_non_zero <- x[x > 0]
-    values <- quantile(x_non_zero, probs = prob)
+# Helper function to find quantiles of non-zero values
+non_zeros_quantile <- function(x, prob) {
+  x_non_zero <- x[x > 0]
+  if(length(x_non_zero) == 0) {
+    return(1)
+  } else {
+    return(quantile(x_non_zero, probs = prob))
   }
-  return(values)
 }
 
 
+
+# Reshape the input reference mu and cell type proportion matrix
 ## reshape the input reference mu and  cell type proportion matrix
 reshapemat = function(ref_exp = ref_exp, beta.type = beta.type, cutoff= cutoff){
 
@@ -305,196 +279,136 @@ reshapemat = function(ref_exp = ref_exp, beta.type = beta.type, cutoff= cutoff){
 }
 
 
-hadamard.sum = function(srt_exp = srt_exp, F_list = F_list,  A_list = A_list, C_mat = C_mat){
-
-  K = length(F_list)
-  n = ncol(srt_exp)
-
-  Qk_list = matrix( list(), K, 1)
-
-  for (k in 1:K){
-
-    F_list_new = F_list[-k]
-    A_list_new = A_list[-k]
-
-    hadsum_k = Reduce("+",  Map('*',F_list_new,A_list_new))
-
-    Qk = srt_exp- hadsum_k * C_mat
-
-    Qk_list[[k]] = Qk
-
-  }
-
-  return(Qk_list)
-}
-
-
 
 ############ADMM to optimize the problem
-ctexp.admm = function(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_list,
-                      L = L, lambda1 = lambda1, lambda2 = lambda2, epsilon = 1e-5,
-                      maxiter = 100, rho = 1,  rho.incr = 1.05,
-                      rho.max = 1e10){
+MLP = function(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_list,
+               W = W , D = D,
+               lambda1 = lambda1, lambda2 = lambda2, epsilon = epsilon,
+               maxiter = maxiter){
 
 
   timestart<-Sys.time()
-  p = nrow(srt_exp)
-  n = ncol(L)
+
   K = length(A_list)
 
   F_list = B_list
   V_list = B_list
 
-  P_list = matrix(list(), K, 1)
-  for (k in 1:K){
-    P_list[[k]] = matrix(0, p, n)
-  }
+  L = D-W
 
   #check the length of tuning parameters of lambdas
-  if( length(lambda1)==1 ){  lambda1 = rep( lambda1,K)
+  if( length(lambda1) == 1 ){ lambda1 = rep( lambda1,  K)
 
   }else{ lambda1 = lambda1 }
 
-  if( length(lambda2)==1 ){  lambda2 = rep( lambda2,K)
+  if( length(lambda2)==1 ){  lambda2 = rep( lambda2, K)
 
   }else{ lambda2 = lambda2 }
 
 
-  #The correct factors
-  r = matrix( rep(1,p), nrow = p, 1)
+  ### the loss
+  srt_exp_est =  Reduce("+",  Map('*', F_list, A_list))
+  obj.loss =  (norm(srt_exp - srt_exp_est , type = "F"))^2
+
+  graph.reg.loss =  sapply(seq_along(F_list), function(x) {sum(diag(t(F_list[[x]]*A_adj[[x]]) %*% (F_list[[x]]*A_adj[[x]] ) %*% L))})
+
+  loss.all = obj.loss + sum(graph.reg.loss)
 
   ## the main algorithm
   obj.fun = c()
 
   for (i in 1:maxiter){
 
-    ## update S
-    recon_est_temp = Reduce("+",  Map('*',F_list, A_list))
-
-    S_update_temp = ( matrix(r,p,1) %*% matrix(1,1,n)) * recon_est_temp
-
-    S = sapply(1:n,function (i){ coef(nnls::nnls(as.matrix(S_update_temp[,i]),
-                                                 srt_exp[,i]))})
-
-    C_mat = (matrix(r,p,1) %*% matrix(S,1,n))
-
-    Qk_list = hadamard.sum (srt_exp = srt_exp, F_list = F_list, A_list = A_list, C_mat = C_mat)
-
     #update for each cell type
     F_list.old = F_list
     V_list.old = V_list
 
-    reErrorf <- rep(0,K)
-    reErrorv <- rep(0,K)
+    loss.all.old =  loss.all
+
+    Rk_list =  lapply(seq_along(F_list), function(x) F_list[[x]]+ A_list[[x]])
+
+    # update for the F
 
     for (k in 1:K){
 
-      #update Fk
-      F_list[[k]] = update.Fk(Qk = Qk_list[[k]], Ak = A_list[[k]], Bk = B_list[[k]], Vk = V_list[[k]], Pk =  P_list[[k]],
-                              Ak_adj = A_adj[[k]], C_mat = C_mat, rho = rho, lambda2 = lambda2[k])
+      F_list[[k]] = update.Fk(Fk_old = F_list.old[[k]],srt_exp = srt_exp, Rk = Rk_list[[k]],
+                              Ak = A_list[[k]], Bk = B_list[[k]],  Wk = W, Dk = D,
+                              lambda1 = lambda1[k], lambda2 = lambda2[k])
 
-      #update Vk
-      V_list[[k]] = update.Vk(Fk = F_list[[k]],  Pk = P_list[[k]], rho = rho, L = L,
-                              Ak_adj = A_adj[[k]],lambda1 = lambda1[k] )
-
-      #update Pk
-      P_list[[k]] =  P_list[[k]] + rho*(F_list[[k]] - V_list[[k]])
-
-
-      reErrorf[k] <- norm(F_list[[k]]-F_list.old[[k]])/(norm(F_list[[k]])+1E-10)
-      reErrorv[k] <- norm(V_list[[k]]-V_list.old[[k]])/(norm(V_list[[k]])+1E-10)
     }
 
 
+
+    srt_exp_est =  Reduce("+",  Map('*',F_list, A_list))
+
+    obj.loss =  (norm(srt_exp - srt_exp_est , type = "F"))^2
+
+
+    graph.reg.loss =  sapply(seq_along(F_list), function(x) {sum(diag(t(F_list[[x]]) %*% (F_list[[x]]) %*% L))})
+
+    prior.reg.loss =  sapply(seq_along(F_list), function(x) {
+      (norm(F_list[[k]] - B_list[[k]], type = "F"))^2
+    })
+
+    loss.all = obj.loss + sum(graph.reg.loss) + sum(prior.reg.loss)
+
+
+    obj.fun = c(obj.fun , loss.all)
+
     ## stop criterion
-    if(max(c(reErrorf,reErrorv)) < epsilon){
+
+    if(i>5 & ((abs(loss.all - loss.all.old) / abs(loss.all  +loss.all.old))  < epsilon) ){
       break
     }
 
-    rho = min(rho*rho.incr,rho.max )
 
   }
 
-
   timeend<-Sys.time()
+
   runningtime <- as.numeric(timeend - timestart)
 
-  recon_est_temp =  Reduce("+",  Map('*',V_list, A_list))
-
-  srt_exp_est = ( matrix(r,p,1) %*% matrix(S,1,n)) * recon_est_temp
+  F.hat =  lapply(seq_along(F_list), function(x) {F_list[[x]]*A_adj[[x]] })
 
 
-  out = list(V.hat = V_list, F.hat = F_list, runningtime =  runningtime,
-             srt_exp_est = srt_exp_est)
+  srt_exp_est =  Reduce("+",  Map('*', F_list, A_list))
+
+  out = list(F_list = F_list, F.hat = F.hat,  srt_exp_est = srt_exp_est,
+             runningtime =  runningtime, obj.loss =  obj.fun)
 
   return(out)
 }
 
 
 
-
 ### update primal parameters
-update.Fk = function(Qk = Qk, Ak = Ak, Bk = Bk, Vk = Vk, Pk = Pk, Ak_adj = Ak_adj,
-                     C_mat = C_mat, rho = rho , lambda2 = lambda2  ){
+update.Fk = function(Fk_old = Fk_old, srt_exp = srt_exp, Rk = Rk,
+                     Ak = Ak, Bk = Bk,
+                     Wk = Wk, Dk = Dk,
+                     lambda1 = lambda1 ,lambda2 = lambda2){
 
-  dimn = dim(Ak)
-
-  n = ncol( C_mat)
-
-  J = matrix(1,dimn[1],dimn[2])
-
-  #the Numerators
-  nume = rho * Vk - Pk + Qk*Ak*C_mat + 2*lambda2*Bk
+  nume  =  srt_exp * Ak + lambda1 * Fk_old %*% Wk + lambda2 * Bk
 
   #the Denominators
-  deno = Ak *Ak *C_mat*C_mat+  (2*lambda2+rho) * J
+  deno = Rk * Ak + lambda1 * Fk_old %*%Dk + lambda2*Fk_old
 
-  #denoinv =  1/ deno
-  updatefk =   nume * (1/ deno)
+  updatefk =  Fk_old * nume * (1/ deno)
 
-
-  ##########
-  ##the non negative constrains
-
-  updatefk = updatefk*Ak_adj
-
-  updatefk = updatefk * (updatefk >  1e-5)
-
+  updatefk[!is.finite(updatefk)] = 0
 
   return(updatefk)
 
 }
 
-### update primal parameters
-update.Vk = function(Fk = Fk, Pk = Pk, rho = rho, L = L, Ak_adj = Ak_adj, lambda1 =lambda1 ){
-
-  nspot = ncol(L)
-
-  iden = diag(nspot)
-
-  nume =  rho*Fk + Pk
-
-  deno = rho*iden + 2* lambda1 *L
-
-  denoinv = MASS::ginv(deno)
-
-  updatevk =   nume %*% denoinv
-
-  ##the non negative constrains
-  updatevk = updatevk * Ak_adj
-  updatevk = updatevk * (updatevk > 1e-5)
-
-  return(updatevk)
-
-}
 
 #tuning test selection for the model
-tuning.sel.ADMM = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type,
-                           L = L,  lambda1 = lambda1, lambda2 = lambda2, cutoff = 0.05,
-                           epsilon = 1e-5, maxiter = 100,  rho = 1,  rho.incr = 1.05, rho.max = 1e10){
+MLP.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type,
+                     W = W,  lambda1 = lambda1, lambda2 = lambda2, cutoff = 0.05,
+                     epsilon = 1e-5, maxiter = 100){
+
 
   p = nrow(srt_exp)
-  n = ncol(L)
+  n = ncol(W)
   K = ncol(beta.type)
 
   #reshape the input data
@@ -506,8 +420,9 @@ tuning.sel.ADMM = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = bet
   rm(reshape.mat)
 
 
-  ### do not perform batch effect correction
-  r = rep(1,p)
+  D  = diag(apply(W,1,sum))
+
+  L = D - W
 
   #lambda1 selection
   if(is.null(lambda1)){
@@ -515,28 +430,21 @@ tuning.sel.ADMM = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = bet
     cat("We will adpote a value for lambda 1 in our algorithm...", "\n")
 
     #calculate the lambda 1
-    recon_est_temp =  Reduce("+",  Map('*', B_list, A_list))
+    srt_exp_est = Reduce("+",  Map('*', B_list, A_list))
 
-    S = sapply(1:n,function (i){ coef(nnls::nnls(as.matrix(recon_est_temp[,i]),
-                                                 srt_exp[,i]))})
-    ##the final loss
-    srt_exp_est = ( matrix(r,p,1) %*% matrix( S,1,n)) * recon_est_temp
-
-    obj.loss =  0.5*(norm(srt_exp - srt_exp_est , type = "F"))^2
+    obj.loss =  (norm(srt_exp - srt_exp_est , type = "F"))^2
 
     rm(srt_exp_est)
-    rm( recon_est_temp)
 
 
     reg.loss = rep(0,K)
 
-    for (k in 1:K){reg.loss[k] <-  sum(diag(t(B_list[[k]]) %*% B_list[[k]] %*% L))}
+    for (k in 1:K){reg.loss[k] <-  sum(diag(t(B_list[[k]]*A_adj[[k]]) %*% (B_list[[k]]*A_adj[[k]] )%*% L))}
 
-    lambda1 = obj.loss/sum(as.numeric(reg.loss))
-
-
+    lambda1 = 0.5*obj.loss/sum(as.numeric(reg.loss))
 
   }
+  cat("Select value of lambda1", lambda1, "\n")
 
   ###lambda2 selection
 
@@ -552,105 +460,97 @@ tuning.sel.ADMM = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = bet
 
   cat("Run the main algorithm...", "\n")
 
-  model.final =  ctexp.admm(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_list,
-                            L = L, lambda1 = lambda1, lambda2 = lambda2,
-                            epsilon = epsilon, maxiter = maxiter, rho = rho,  rho.incr = rho.incr, rho.max = rho.max)
+  model.final =  MLP(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_list,
+                     W = W , D = D,
+                     lambda1 = lambda1, lambda2 = lambda2, epsilon = epsilon,
+                     maxiter = maxiter)
 
-  out = list(V.hat = model.final$V.hat, lambda1 =  lambda1, lambda2 = lambda2,
-             beta = beta, srt_exp_est = model.final$srt_exp_est)
+
+  out = list(V.hat = model.final$F.hat, F_list = model.final$F_list , ambda1 =  lambda1, lambda2 = lambda2,
+             beta = beta, obj.loss =  model.final $obj.loss)
 
   return(out)
 
 }
 
-# Main algorithm of the model
 
-#' @title STged: Gene expression deconvolution for spatial transcriptomic data
-#' @description STged is a gene expression deconvolution mathod. STged employs graph-guided spatial correlations and prior-guided gene expression similarities within a non-negative least-squares regression framework.
-#' @import  reticulate  stats Matrix nnls
-#' @param sc_exp scRNA-seq matrix, genes * cells. The format should be raw-counts. The matrix need include gene names and cell names.
-#' @param sc_label cell type information. The cell need be divided into multiple categories.
-#' @param spot_exp stRNA-seq matrix, genes * spots. The format should be raw-counts. The matrix need include gene names and spot names.
-#' @param spot_loc coordinate matrix, spots * coordinates. The matrix need include spot names and coordinate name (x, y).
-#' @param beta cell type proportion matrix, spots * cell types.
-#' @param gene_det_in_min_cells_per a floor variable. minimum percent # of genes that need to be detected in a cell.
-#' @param expression_threshold a floor variable. Threshold to consider a gene expressed.
-#' @param nUMI a floor variable. 	minimum # of read count that need to be detected in a cell or spot.
-#' @param verbose a logical variable that defines whether to print the processing flow of data process.
-#' @param clean.only a logical variable that defines whether to normalize data with log transform.
-#' @param python_env the path of python environment.
-#' @param truncate a logical variable. that defines whether to truncate the gene expression data for both scRNA-seq and SRT.
-#' @param qt Winsorize expression values to prevent outliers. Values below this quantile and above 1-this quantile will be set to the quantile value.
-#' @param knei number of neighbor spots for construct spatial neighboring graph, details refer to Squidpy.
-#' @param methodL the method used to construct spatial neighboring graph, details refer to Squidpy.
-#' @param coord_type  grid coordinates, details refer to Squidpy.
-#' @param quantile_prob_bandwidth selection of bandwidth of the spatial kernel of each spot.
-#' @param lambda1 tuning parameter to balance the graph regularization term. If the tuning parameter is set to NULL, then, we will adopt the value in our algorithm.
-#' @param lambda2 tuning parameter to balance the prior regularization term. If the tuning parameter is set to NULL, then, we will adopt the value in our algorithm.
-#' @param cutoff  a cutoff value of cell type proportion.
-#' @param rho  the penalty parameter in the ADMM algorithm.
-#' @param rho.incr the increase step parameter for varying penalty parameter rho.
-#' @param rho.max the maximum value of rho.
-#' @param maxiter a positive integer represents the maximum number of updating algorithm. Default setting is 100.
-#' @param epsilon a parameter represents the stop criterion.
-#' @usage model.est = STged(sc_exp = sc_exp, sc_label = sc_label, spot_exp = spot_exp, spot_loc = spot_loc)
+#' Spatial Transcriptomics Gene Expression Deconvolution (STged)
+#'
+#' @param sc_exp A matrix of single-cell RNA-seq gene expression data (genes x cells), containing raw counts.
+#' @param sc_label A vector or factor of cell type labels corresponding to each cell in the sc_exp data.
+#' @param spot_exp A matrix of spatial transcriptomics RNA-seq gene expression data (genes x spots), containing raw counts.
+#' @param spot_loc A matrix specifying the coordinates of each spot (spots x coordinates), typically named (x, y).
+#' @param beta A matrix describing the cell type proportions at each spot (spots x cell types).
+#' @param gene_det_in_min_cells_per Minimum percentage of genes that must be detected in a cell, used as a filtering criterion.
+#' @param expression_threshold Minimum expression level to consider a gene as expressed, used for data cleaning.
+#' @param nUMI Minimum number of read counts required to consider a cell or spot, used for data cleaning.
+#' @param verbose Logical; if TRUE, prints details of the data processing steps.
+#' @param clean.only Logical; if TRUE, applies only data cleaning steps without normalization.
+#' @param depthscale A scaling factor used for normalization (default is 100,000).
+#' @param python_env Path to the Python environment, used for calling Python functions.
+#' @param truncate Logical; if TRUE, truncates gene expression data to reduce the impact of extreme values.
+#' @param qt Quantile used for Winsorizing expression values to control the effects of outliers.
+#' @param knei Integer; number of neighboring spots to consider when constructing the spatial neighboring graph.
+#' @param methodL Method used for constructing the spatial neighboring graph, details provided by the Squidpy package.
+#' @param coord_type Type of coordinates system used, e.g., 'grid' as described by Squidpy.
+#' @param quantile_prob_bandwidth Bandwidth for the spatial kernel used in constructing the neighboring graph.
+#' @param lambda1 Tuning parameter for balancing the graph regularization term. Automatically determined if set to NULL.
+#' @param lambda2 Tuning parameter for balancing the prior regularization term. Automatically determined if set to NULL.
+#' @param cutoff Cutoff value for cell type proportion to filter insignificant cell type contributions.
+#' @param rho Penalty parameter in the ADMM algorithm, with adaptive adjustments.
+#' @param rho.incr Increment step for varying the penalty parameter rho.
+#' @param rho.max Maximum allowable value for rho.
+#' @param maxiter Maximum number of iterations allowed in the algorithm.
+#' @param epsilon Convergence threshold for stopping the algorithm.
+#' @return A list containing model estimation results, including estimated parameters and diagnostics.
+##'@usage model_results <- STged(sc_exp = sc_exp, sc_label = sc_label,
+#'                       spot_exp = spot_exp, spot_loc = spot_loc, beta = beta)
 #' @export
-STged = function(sc_exp = sc_exp, sc_label = sc_label,
-                 spot_exp = spot_exp, spot_loc = spot_loc,   beta = beta,
-                 gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
-                 nUMI = 100, verbose = FALSE, clean.only = FALSE,python_env = python_env,
-                 truncate = TRUE, qt = 0.01,
-                 knei = 6,  methodL =  "Hex",coord_type = "grid", quantile_prob_bandwidth = 1/3,
-                 lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,  rho = 1,  rho.incr = 1.05,
-                 rho.max = 1e10, maxiter = 100,  epsilon = 1e-5){
+STged <- function(sc_exp, sc_label, spot_exp, spot_loc, beta,
+                  gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
+                  nUMI = 100, verbose = FALSE, clean.only = FALSE, depthscale = 1e6,python_env,
+                  truncate = TRUE, qt = 0.0001, knei = 6, methodL = "Hex",
+                  coord_type = "grid", quantile_prob_bandwidth = 1/3,
+                  lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,
+                  maxiter = 100, epsilon = 1e-5) {
 
-  #Set the environment of Python
-  if(is.null(python_env)){
-    cat("Please give a Python environment", "\n")
+  if(is.null(python_env)) {
+    stop("Python environment path is not specified. Please provide a valid path.")
   }
 
-  # clear both spatial and scRNA-seq data
-  cat("Clear data", "\n")
-  datax = data_process(sc_exp = sc_exp, sc_label = sc_label,
-                       spot_exp = spot_exp, spot_loc = spot_loc, depthscale = 1,
-                       gene_det_in_min_cells_per = gene_det_in_min_cells_per,
-                       expression_threshold = expression_threshold,
-                       nUMI =  nUMI, verbose = verbose, clean.only = clean.only )
-
-  #construct spatial correlation
-  cat("Construct spatial correlation", "\n")
-  L.mat = dis_weight(spot_loc = datax$spot_loc, spot_exp = datax$spot_exp, k = knei,
-                     quantile_prob_bandwidth = quantile_prob_bandwidth, method = methodL,
-                     coord_type = coord_type)
-
-  #Set the environment of Python
-  if(truncate){
-    datax$sc_exp  =  winsorize(x =  datax$sc_exp, qt = qt)
-    datax$spot_exp  =  winsorize(x =  datax$spot_exp, qt = qt)
+  if(verbose) cat("Data cleaning and preprocessing...\n")
+  datax <- data_process(sc_exp = sc_exp, sc_label = sc_label, spot_exp = spot_exp, spot_loc = spot_loc,
+                        gene_det_in_min_cells_per = gene_det_in_min_cells_per, expression_threshold = expression_threshold,
+                        nUMI = nUMI ,verbose = verbose,
+                        depthscale = depthscale,clean.only = clean.only)
+  if(truncate) {
+    datax$sc_exp <- winsorize(datax$sc_exp, qt)
+    datax$spot_exp <- winsorize(datax$spot_exp, qt)
   }
 
+  if(verbose) cat("Constructing spatial correlation matrix...\n")
+  L.mat <- dis_weight(spot_loc = datax$spot_loc, spot_exp = datax$spot_exp,
+                      k = knei, quantile_prob_bandwidth = quantile_prob_bandwidth,
+                      method = methodL, coord_type = coord_type)
 
-  #construct reference gene matrix
-  cat("Construct reference gene matrix", "\n")
-  ref_exp = create_group_exp(sc_exp = datax$sc_exp,sc_label = datax$sc_label)
 
-  #the corresponding cell type proportion
-  beta = beta[colnames(datax$spot_exp),]
+  if(verbose) cat("Constructing reference gene expression matrix...\n")
+  ref_exp <- create_group_exp(sc_exp = datax$sc_exp, sc_label = sc_label)
 
-  #run the main model
-  cat("Run the STged", "\n")
+  beta <- beta[colnames(datax$spot_exp), ]
 
+  if(verbose) cat("Running the STged model...\n")
   start_time <- Sys.time()
-  model.est = tuning.sel.ADMM(srt_exp = datax$spot_exp, ref_exp = ref_exp,
-                              beta.type = beta, L = L.mat$dis_weight, lambda1 =  NULL, lambda2 =  NULL,
-                              cutoff = 0.05, epsilon = 1e-3,
-                              maxiter = 1000, rho = 1,  rho.incr = 1.1, rho.max = 1e10)
+  model.est <- MLP.STged(srt_exp  = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,
+                         w = L.mat$dis_weight,
+                         lambda1 =lambda1, lambda2= lambda2, cutoff = cutoff,
+                         epsilon =epsilon, maxiter = maxiter)
   end_time <- Sys.time()
 
-  cat("Run time of STged", end_time - start_time,"\n")
 
+  if(verbose) cat("Total run time: ", end_time - start_time, " seconds.\n")
 
   return(model.est)
-
 }
+
 
