@@ -2,9 +2,4 @@
 
 export(STged)
 export(create_group_exp)
-export(data_process)
 export(dis_weight)
-import(Matrix)
-import(nnls)
-import(reticulate)
-import(stats)
