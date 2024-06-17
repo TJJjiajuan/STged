@@ -4,7 +4,7 @@ R package supporting the paper **"STged: Gene expression deconvolution for spati
 STged integrates spatial correlation patterns of gene expression and intra-cell type expression similarity to achieve precise and robust deconvolution results. Implemented within a non-negative least-squares regression framework, STged models gene expression levels at each spot as a weighted linear combination of cell type-specific gene expression, with the weights corresponding to the respective cell type proportions. By incorporating a spatial neighborhood graph prior, STged captures spatial correlation structures in cell type expressions across spots. Moreover, it integrates cell type-specific gene expression information prior from scRNA-seq data to enhance accuracy.
 ### Overview of STged
 ![alt
-text](https://github.com/TJJjiajuan/STged/blob/main/docs/STged_mian.PNG?raw=true)
+text](https://github.com/TJJjiajuan/STged/blob/main/docs/STged_main.png?raw=true)
 
 ## Install STged
 In the STged, there are several Python modules and R packages are needed to install first.
