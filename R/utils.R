@@ -572,7 +572,7 @@ STged <- function(sc_exp, sc_label, spot_exp, spot_loc, beta,
   if(verbose) cat("Running the STged model...\n")
   start_time <- Sys.time()
   model.est <- MUR.STged(srt_exp  = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,
-                         w = L.mat$dis_weight,
+                         W = L.mat$dis_weight,
                          lambda1 =lambda1, lambda2= lambda2, cutoff = cutoff,
                          epsilon =epsilon, maxiter = maxiter)
   end_time <- Sys.time()
