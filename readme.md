@@ -50,8 +50,7 @@ model.est = STged(sc_exp, sc_label, spot_exp, spot_loc, beta,
 ## Tutorials
 We provide a small example of how to run STged using the simulated FISHplus dataset. There are two ways to run STged: (1) step by step, or (2) using the main function.
 
-- [FISHplus with `STged`](https://github.com/TJJjiajuan/STged/blob/main/docs/Demo_STged_FISH.html)
-
+- [FISHplus with `STged`](https://htmlpreview.github.io/?https://github.com/TJJjiajuan/STged/blob/main/docs/Demo_STged_FISH.html)
 
 ##  Contact
 
