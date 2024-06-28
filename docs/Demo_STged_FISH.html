@@ -12,7 +12,7 @@
 <meta name="author" content="Jia-Juan Tu" />
 
 
-<title>STged: Gene expression Deconvolution in Scenario 2 simulated datasets</title>
+<title>STged: Gene expression deconvolution in simulation study</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -349,32 +349,55 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">STged: Gene expression Deconvolution in
-Scenario 2 simulated datasets</h1>
+<h1 class="title toc-ignore">STged: Gene expression deconvolution in
+simulation study</h1>
 <h4 class="author">Jia-Juan Tu</h4>
 
 </div>
 
 
-<p>##Set the size of the figures</p>
-<div id="set-environment-of-python-modual" class="section level2">
-<h2>Set environment of Python modual</h2>
+<div id="set-the-size-of-the-figures" class="section level1">
+<h1>Set the size of the figures</h1>
+</div>
+<div id="set-environment-of-python-modual" class="section level1">
+<h1>Set environment of Python modual</h1>
 <pre class="r"><code>#Please check the environment on you PC
 
 python_env &lt;- &#39;D:/Users/tujia/anaconda3/envs/ccnet/python.exe&#39;
 reticulate::use_python(python = python_env, required = TRUE)
 
+
 anndata &lt;- reticulate::import(&quot;anndata&quot;)
 np &lt;- reticulate::import(&quot;numpy&quot;)
 sq &lt;- reticulate::import(&quot;squidpy&quot;)</code></pre>
-</div>
 <div id="load-function" class="section level2">
 <h2>Load function</h2>
-<pre class="r"><code>source(&quot;../code/utils.R&quot;)</code></pre>
+<pre class="r"><code># Installation package
+
+#  devtools::install_github(&quot;TJJjiajuan/STged&quot;)
+
+
+library(STged)
+
+# load data sets
+data(Fishplus)
+
+dim(sc_exp)</code></pre>
+<pre><code>## [1] 8091 1691</code></pre>
+<pre class="r"><code>unique(sc_label)</code></pre>
+<pre><code>## [1] &quot;iNeuron&quot;    &quot;eNeuron&quot;    &quot;Olig&quot;       &quot;microglia&quot;  &quot;endo_mural&quot;
+## [6] &quot;astrocytes&quot;</code></pre>
+<pre class="r"><code>dim(spot_exp)</code></pre>
+<pre><code>## [1] 10000    69</code></pre>
+<pre class="r"><code>head(spot_loc)</code></pre>
+<pre><code>##              x        y
+## spot_1  411.06 -1859.62
+## spot_2  911.06 -1859.62
+## spot_3 1411.06 -1859.62
+## spot_4 1911.06 -1859.62
+## spot_5 2411.06 -1859.62
+## spot_6 2911.06 -1859.62</code></pre>
 </div>
-<div id="load-data-sets" class="section level1">
-<h1>load data sets</h1>
-<pre class="r"><code>load(&quot;../data/Fish+data.RDATA&quot;)</code></pre>
 </div>
 <div id="run-stged-step-by-step" class="section level1">
 <h1>Run STged step by step</h1>
@@ -382,16 +405,18 @@ sq &lt;- reticulate::import(&quot;squidpy&quot;)</code></pre>
 small example to show how to run the code step by step.</p>
 <div id="step-1-clear-data" class="section level2">
 <h2>Step 1: clear data</h2>
-<pre class="r"><code>datax = data_process(sc_exp = sc_exp, sc_label = sc_label, 
-                     spot_exp = spot_exp, spot_loc = spot_loc,
-                     depthscale = 1, gene_det_in_min_cells_per = 0.01, 
-                     expression_threshold = 0,nUMI =  100, verbose = FALSE,
-                     clean.only = FALSE)
+<pre class="r"><code>clean.only = FALSE
+depthscale  = 1e6
+datax = data_process(sc_exp = sc_exp,   sc_label = sc_label, 
+                     spot_exp = spot_exp,  spot_loc = spot_loc,
+                     depthscale = depthscale,  gene_det_in_min_cells_per = 0.01, 
+                     expression_threshold = 0,
+                     nUMI =  100, verbose = FALSE, clean.only = clean.only)
 
 ## Winsorize expression values to prevent outliers  
 truncate = FALSE
 if(truncate){
-  qt = 0.0001
+  qt = 0.05
   datax$sc_exp  =  winsorize(x =  datax$sc_exp, qt = qt)
   datax$spot_exp  =  winsorize(x =  datax$spot_exp, qt = qt)
 }</code></pre>
@@ -418,17 +443,17 @@ beta =  beta[colnames(datax$spot_exp),]</code></pre>
 <pre class="r"><code>cat(&quot;Run the STged&quot;, &quot;\n&quot;)</code></pre>
 <pre><code>## Run the STged</code></pre>
 <pre class="r"><code>start_time &lt;- Sys.time()
-stged.est = MLP.STged(srt_exp = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,  w = L.mat$dis_weight, lambda1 = NULL, lambda2 = NULL,  cutoff = 0.05, epsilon = 1e-5,  
+stged.est = MUR.STged(srt_exp = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,  W = L.mat$dis_weight, lambda1 = NULL, lambda2 = NULL,  cutoff = 0.05, epsilon = 1e-5,  
                       maxiter = 100)</code></pre>
-<pre><code>## Adopting a value for lambda1 in our algorithm...
-## Selected value of lambda1:  2.288872 
-## Tuning for lambda2 in our algorithm...
-## Selected value of lambda2:  0.4510709 
-## Running the main algorithm...</code></pre>
+<pre><code>## We will adpote a value for lambda 1 in our algorithm... 
+## Select value of lambda1 0.7612126 
+## tuning for lambda 2 in our algorithm... 
+## Select value of lambda2 1.239898 
+## Run the main algorithm...</code></pre>
 <pre class="r"><code>end_time &lt;- Sys.time()
 
 cat(&quot;Run time of STged&quot;, end_time - start_time,&quot; seconds.\n&quot;)</code></pre>
-<pre><code>## Run time of STged 1.001751  seconds.</code></pre>
+<pre><code>## Run time of STged 26.37047  seconds.</code></pre>
 </div>
 <div id="alternatively-we-can-run-the-stged-in-one-step" class="section level2">
 <h2>Alternatively, we can run the STged in one step</h2>
@@ -436,8 +461,10 @@ cat(&quot;Run time of STged&quot;, end_time - start_time,&quot; seconds.\n&quot;
 model.est = STged(sc_exp = sc_exp, sc_label = sc_label, 
                   spot_exp = spot_exp, spot_loc = spot_loc,  beta = beta,
                   python_env = python_env,depthscale = 1e6,
-                  knei = 6,  methodL =  &quot;Hex&quot;,coord_type = &quot;grid&quot;, quantile_prob_bandwidth = 1/3,
-                  lambda1 = NULL, lambda2 = NULL, cutoff = 0.05, maxiter = 500,  epsilon = 1e-5)
+                  knei = 6,  methodL =  &quot;Hex&quot;,coord_type = &quot;grid&quot;, 
+                  quantile_prob_bandwidth = 1/3,
+                  lambda1 = NULL, lambda2 = NULL, cutoff = 0.05, 
+                  maxiter = 500,  epsilon = 1e-5)
 
 end_time &lt;- Sys.time()
 

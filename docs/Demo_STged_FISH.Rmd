@@ -1,5 +1,5 @@
 ---
-title: "STged: Gene expression Deconvolution in Scenario 2 simulated datasets"
+title: "STged: Gene expression deconvolution in simulation study"
 output:
   html_document: default
   pdf_document: default
@@ -9,20 +9,23 @@ author: Jia-Juan Tu
 
 
 ```{r setup, include=FALSE}
+
 knitr::opts_chunk$set(echo = TRUE)
+
 ```
 
-## Set the size of the figures
+#  Set the size of the figures
 ```{r, fig.height=7, fig.width=6, size="small", fig.align="center"}
 
 ```
 
-## Set environment of Python modual
+# Set environment of Python modual
 ```{r}
 #Please check the environment on you PC
 
 python_env <- 'D:/Users/tujia/anaconda3/envs/ccnet/python.exe'
 reticulate::use_python(python = python_env, required = TRUE)
+
 
 anndata <- reticulate::import("anndata")
 np <- reticulate::import("numpy")
@@ -32,17 +35,26 @@ sq <- reticulate::import("squidpy")
 
 ## Load function
 ```{r}
-source("../code/utils.R")
 
-```
+# Installation package
 
+#  devtools::install_github("TJJjiajuan/STged")
+
+
+library(STged)
 
 # load data sets
-```{r}
+data(Fishplus)
 
-load("../data/Fish+data.RDATA")
+dim(sc_exp)
+unique(sc_label)
+dim(spot_exp)
+
+head(spot_loc)
 
 ```
+
+
 
 # Run STged step by step
 **Note**: There are three steps in STged. We here give a small example to show how to run the code step by step.
@@ -50,16 +62,18 @@ load("../data/Fish+data.RDATA")
 ## Step 1: clear data
 ```{r}
 
-datax = data_process(sc_exp = sc_exp, sc_label = sc_label, 
-                     spot_exp = spot_exp, spot_loc = spot_loc,
-                     depthscale = 1, gene_det_in_min_cells_per = 0.01, 
-                     expression_threshold = 0,nUMI =  100, verbose = FALSE,
-                     clean.only = FALSE)
+clean.only = FALSE
+depthscale  = 1e6
+datax = data_process(sc_exp = sc_exp,   sc_label = sc_label, 
+                     spot_exp = spot_exp,  spot_loc = spot_loc,
+                     depthscale = depthscale,  gene_det_in_min_cells_per = 0.01, 
+                     expression_threshold = 0,
+                     nUMI =  100, verbose = FALSE, clean.only = clean.only)
 
 ## Winsorize expression values to prevent outliers  
 truncate = FALSE
 if(truncate){
-  qt = 0.0001
+  qt = 0.05
   datax$sc_exp  =  winsorize(x =  datax$sc_exp, qt = qt)
   datax$spot_exp  =  winsorize(x =  datax$spot_exp, qt = qt)
 }
@@ -79,6 +93,7 @@ L.mat = dis_weight(spot_loc = datax$spot_loc, spot_exp = datax$spot_exp, k = 6,
 
 ## Step 3: construct reference gene matrix
 ```{r}
+
 cat("Construct reference gene matrix", "\n")
 ref_exp = create_group_exp(sc_exp = datax$sc_exp, sc_label = datax$sc_label)
 
@@ -93,7 +108,7 @@ beta =  beta[colnames(datax$spot_exp),]
 cat("Run the STged", "\n")
 
 start_time <- Sys.time()
-stged.est = MLP.STged(srt_exp = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,  w = L.mat$dis_weight, lambda1 = NULL, lambda2 = NULL,  cutoff = 0.05, epsilon = 1e-5,  
+stged.est = MUR.STged(srt_exp = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,  W = L.mat$dis_weight, lambda1 = NULL, lambda2 = NULL,  cutoff = 0.05, epsilon = 1e-5,  
                       maxiter = 100)
 end_time <- Sys.time()
 
@@ -110,8 +125,10 @@ start_time <- Sys.time()
 model.est = STged(sc_exp = sc_exp, sc_label = sc_label, 
                   spot_exp = spot_exp, spot_loc = spot_loc,  beta = beta,
                   python_env = python_env,depthscale = 1e6,
-                  knei = 6,  methodL =  "Hex",coord_type = "grid", quantile_prob_bandwidth = 1/3,
-                  lambda1 = NULL, lambda2 = NULL, cutoff = 0.05, maxiter = 500,  epsilon = 1e-5)
+                  knei = 6,  methodL =  "Hex",coord_type = "grid", 
+                  quantile_prob_bandwidth = 1/3,
+                  lambda1 = NULL, lambda2 = NULL, cutoff = 0.05, 
+                  maxiter = 500,  epsilon = 1e-5)
 
 end_time <- Sys.time()
 
