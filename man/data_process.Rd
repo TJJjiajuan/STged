@@ -46,13 +46,14 @@ A list containing filtered and processed scRNA-seq and SRT data:
   - `sc_exp`: Filtered scRNA-seq expression matrix.
   - `sc_label`: Corresponding cell labels for the filtered scRNA-seq data.
   - `spot_exp`: Filtered SRT expression matrix.
-
-#data(Fishplus)
-#datax = data_process(sc_exp = sc_exp, sc_label = sc_label, spot_exp = spot_exp, spot_loc = spot_loc)
 }
 \description{
 Data Processing for Spatial and Single-cell Transcriptomics.
 Processes and cleans spatial transcriptomics (SRT) and single-cell RNA-seq (scRNA-seq)
 data by filtering genes and cells/spots based on specified criteria. It aligns the
 gene expression data between scRNA-seq and SRT datasets by retaining only the common genes.
+}
+\examples{
+data(Fishplus)
+datax = data_process(sc_exp = sc_exp, sc_label = sc_label, spot_exp = spot_exp, spot_loc = spot_loc)
 }
