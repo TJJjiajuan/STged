@@ -1,6 +1,6 @@
 Package: STged
 Type: Package
-Title: STged: Gene expression deconvolution for spatial transcriptomic data
+Title: Precise gene expression deconvolution in spatial transcriptomics with STged
 Version: 0.1.0
 Author: Jian-Juan Tu
 Maintainer: Jian-Juan Tu<tujiajuan@163.com>
