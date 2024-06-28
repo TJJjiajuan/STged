@@ -18,9 +18,10 @@
 #'   - `sc_label`: Corresponding cell labels for the filtered scRNA-seq data.
 #'   - `spot_exp`: Filtered SRT expression matrix.
 #'
-#' #data(Fishplus)
-#' #datax = data_process(sc_exp = sc_exp, sc_label = sc_label, spot_exp = spot_exp, spot_loc = spot_loc)
-
+#' @examples
+#' data(Fishplus)
+#' datax = data_process(sc_exp = sc_exp, sc_label = sc_label, spot_exp = spot_exp, spot_loc = spot_loc)
+#' @export
 data_process <- function(sc_exp, sc_label, spot_exp, spot_loc,
                          gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
                          nUMI = 100, verbose = FALSE, depthscale = 1e6, clean.only = TRUE) {
@@ -225,8 +226,6 @@ non_zeros_quantile <- function(x, prob) {
 }
 
 
-
-# Reshape the input reference mu and cell type proportion matrix
 ## reshape the input reference mu and  cell type proportion matrix
 reshapemat = function(ref_exp = ref_exp, beta.type = beta.type, cutoff= cutoff){
 
@@ -281,7 +280,7 @@ reshapemat = function(ref_exp = ref_exp, beta.type = beta.type, cutoff= cutoff){
 
 
 ############ADMM to optimize the problem
-MLP = function(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_list,
+MUR = function(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_list,
                W = W , D = D,
                lambda1 = lambda1, lambda2 = lambda2, epsilon = epsilon,
                maxiter = maxiter){
@@ -401,8 +400,39 @@ update.Fk = function(Fk_old = Fk_old, srt_exp = srt_exp, Rk = Rk,
 }
 
 
-#tuning test selection for the model
-MLP.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type,
+
+#' Multiplicative update rule (MUR) for Spatial Transcriptomics Gene Expression Deconvolution (MUR.STged)
+#' This function performs the gene expression deconvolution using a multilevel perceptron approach for
+#' spatial transcriptomics data.
+#'
+#' @param srt_exp A matrix of spatial transcriptomics RNA-seq gene expression data (genes x spots), containing raw counts.
+#' @param ref_exp A matrix of reference single-cell RNA-seq gene expression data (genes x cell types).
+#' @param beta.type A matrix describing the initial cell type proportions at each spot (spots x cell types).
+#' @param W A spatial weight matrix (spots x spots) describing the spatial correlation between spots.
+#' @param lambda1 Regularization parameter for the graph regularization term. Automatically determined if set to NULL.
+#' @param lambda2 Regularization parameter for the prior regularization term. Automatically determined if set to NULL.
+#' @param cutoff Cutoff value for cell type proportion to filter insignificant cell type contributions. Default is 0.05.
+#' @param epsilon Convergence threshold for stopping the algorithm. Default is 1e-5.
+#' @param maxiter Maximum number of iterations allowed in the algorithm. Default is 100.
+#'
+#' @return A list containing the following elements:
+#'   \item{V.hat}{Estimated gene expression matrix (genes x spots).}
+#'   \item{F_list}{List of estimated cell type-specific gene expression matrices.}
+#'   \item{lambda1}{Selected value of lambda1.}
+#'   \item{lambda2}{Selected value of lambda2.}
+#'   \item{beta}{Final estimated cell type proportions matrix (spots x cell types).}
+#'   \item{obj.loss}{Objective loss value of the final model.}
+#'
+#' @examples
+#' \dontrun{
+#' # Example usage:
+#' result <- MUR.STged(srt_exp = spatial_exp, ref_exp = reference_exp, beta.type = beta,
+#'                     W = spatial_weights, lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,
+#'                     epsilon = 1e-5, maxiter = 100)
+#' }
+#' @export
+
+MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type,
                      W = W,  lambda1 = lambda1, lambda2 = lambda2, cutoff = 0.05,
                      epsilon = 1e-5, maxiter = 100){
 
@@ -452,7 +482,7 @@ MLP.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
 
     cat("tuning for lambda 2 in our algorithm...", "\n")
 
-    lambda2  = sd(ref_exp)*2
+    lambda2  = sd(ref_exp)
   }
 
   cat("Select value of lambda2", lambda2, "\n")
@@ -460,7 +490,7 @@ MLP.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
 
   cat("Run the main algorithm...", "\n")
 
-  model.final =  MLP(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_list,
+  model.final = MUR(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_list,
                      W = W , D = D,
                      lambda1 = lambda1, lambda2 = lambda2, epsilon = epsilon,
                      maxiter = maxiter)
@@ -541,7 +571,7 @@ STged <- function(sc_exp, sc_label, spot_exp, spot_loc, beta,
 
   if(verbose) cat("Running the STged model...\n")
   start_time <- Sys.time()
-  model.est <- MLP.STged(srt_exp  = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,
+  model.est <- MUR.STged(srt_exp  = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,
                          w = L.mat$dis_weight,
                          lambda1 =lambda1, lambda2= lambda2, cutoff = cutoff,
                          epsilon =epsilon, maxiter = maxiter)
