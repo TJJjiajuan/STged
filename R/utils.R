@@ -496,7 +496,8 @@ MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
                      maxiter = maxiter)
 
 
-  out = list(V.hat = model.final$F.hat, F_list = model.final$F_list , ambda1 =  lambda1, lambda2 = lambda2,
+  out = list(V.hat = model.final$F.hat, F_list = model.final$F_list ,
+             lambda1 =lambda1, lambda2 = lambda2,
              beta = beta, obj.loss =  model.final $obj.loss)
 
   return(out)
@@ -538,7 +539,8 @@ MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
 #' @export
 STged <- function(sc_exp, sc_label, spot_exp, spot_loc, beta,
                   gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
-                  nUMI = 100, verbose = FALSE, clean.only = FALSE, depthscale = 1e6,python_env,
+                  nUMI = 100, verbose = FALSE, clean.only = FALSE, depthscale = 1e6,
+                  python_env,
                   truncate = TRUE, qt = 0.0001, knei = 6, methodL = "Hex",
                   coord_type = "grid", quantile_prob_bandwidth = 1/3,
                   lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,
