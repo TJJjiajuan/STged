@@ -1,5 +1,5 @@
 # STged
-R package supporting the paper **"STged: Gene expression deconvolution for spatial transcriptomic data"**. 
+R package supporting the paper **"Precision gene expression deconvolution in spatial transcriptomics with STged"**. 
 
 STged integrates spatial correlation patterns of gene expression and intra-cell type expression similarity to achieve precise and robust deconvolution results. Implemented within a non-negative least-squares regression framework, STged models gene expression levels at each spot as a weighted linear combination of cell type-specific gene expression, with the weights corresponding to the respective cell type proportions. By incorporating a spatial neighborhood graph prior, STged captures spatial correlation structures in cell type expressions across spots. Moreover, it integrates cell type-specific gene expression information prior from scRNA-seq data to enhance accuracy.
 ### Overview of STged
@@ -30,10 +30,10 @@ devtools::install_github("TJJjiajuan/STged")
 
 ## Run the example
 ``` buildoutcfg
-#load the input data set
+# Load the input data set
 data(Fishplus)
 
-##### path on the Windows platform on our computer
+# The path on the Windows platform on our computer
 python_env <- 'C:/Users/visitor01/.conda/envs/stged/python.exe'
 
 # We run STged as a toy examples
@@ -50,7 +50,8 @@ model.est = STged(sc_exp, sc_label, spot_exp, spot_loc, beta,
 ## Tutorials
 We also give a small example of how to run STged. Here we use the simulated FISHplus data set as an example. There are two ways to run STged, (1) run STged step by step, (2) run the STged by a main function.
 - [FISHplus with `STged`](https://github.com/TJJjiajuan/STged/blob/main/docs/Demo_STged_FISH.Rmd)
-  
-Please do not hesitate to contact Dr. Tu at tujiajuan@163.com
-to seek any clarifications regarding any content or operation of the
-archive.
+
+- Figure 2 drawn in the main text can be obtained from the following tutorial [Figure2](https://htmlpreview.github.io/?https://github.com/TJJjiajuan/STged/blob/main/docs/Demo_STged_FISH.html).
+
+##  Contact
+Please do not hesitate to contact Dr. Tu at tujiajuan@163.com to seek any clarifications regarding any content or operation of the archive.
