@@ -89,7 +89,7 @@ cleanCounts <- function(counts, gene_det_in_min_cells_per = 0.01, expression_thr
     if (verbose) message("Matrix filtered without scaling. Dimension: ", dim(counts))
     return(counts)
   } else {
-    sf = colSums(counts) / median(colSums(counts))
+    sf = colSums(counts) 
     scaled_counts = log(sweep(counts, 2, sf, FUN = "/") * depthscale + 1)
     if (verbose) message("Matrix scaled and log-transformed. Dimension: ", dim(scaled_counts))
     return(scaled_counts)
