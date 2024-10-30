@@ -53,8 +53,8 @@ We provide a small example of how to run STged using the simulated FISHplus data
 - [FISHplus with `STged`](https://htmlpreview.github.io/?https://github.com/TJJjiajuan/STged/blob/main/docs/Demo_STged_FISH.html)
   
 ## Detailed Analysis and Reproducibility Guide
-To fully analyze and reproduce results for the STged example across both simulation studies and real data analyses, please refer here
-- [Reproducibility with `STged`](https://htmlpreview.github.io/?https://github.com/TJJjiajuan/STged_example/blob/main/demo_files/demo_PDACA_STged_mHVG.html)
+A tutorial with examples of the usage of STged is available at:
+[STged-examples.html](https://github.com/TJJjiajuan/STged_example).
 
 ##  Contact
 
