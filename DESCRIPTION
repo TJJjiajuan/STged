@@ -1,15 +1,15 @@
 Package: STged
 Type: Package
-Title: Precise gene expression deconvolution in spatial transcriptomics with STged
+Title: Precise Gene Expression Deconvolution in Spatial Transcriptomics with STged
 Version: 0.1.0
 Author: Jian-Juan Tu
-Maintainer: Jian-Juan Tu<tujiajuan@163.com>
+Maintainer: Jian-Juan Tu <tujiajuan@163.com>
 Description: STged uses graph-driven spatial structure correlations and reference gene signature-driven gene expression similarities within a non-negative least-squares regression framework.
 Depends: R (>= 4.2.1)
-Imports: MASS, Matrix, nnls, reticulate
+Imports: MASS, Matrix, nnls, reticulate, stats
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
-License: GPL(>= 2)
+License: GPL-2 | GPL-3
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
