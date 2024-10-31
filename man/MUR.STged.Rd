@@ -13,6 +13,8 @@ MUR.STged(
   W = W,
   lambda1 = lambda1,
   lambda2 = lambda2,
+  tau1 = 0.1,
+  tau2 = 0.1,
   cutoff = 0.05,
   epsilon = 1e-05,
   maxiter = 100
@@ -27,9 +29,13 @@ MUR.STged(
 
 \item{W}{A spatial weight matrix (spots x spots) describing the spatial correlation between spots.}
 
-\item{lambda1}{Regularization parameter for the graph regularization term. Automatically determined if set to NULL.}
+\item{lambda1}{Regularization parameter for the graph regularization term, controlling spatial smoothness across neighboring spots. Automatically determined if set to NULL.}
 
-\item{lambda2}{Regularization parameter for the prior regularization term. Automatically determined if set to NULL.}
+\item{lambda2}{Regularization parameter for the prior regularization term, aligning estimated gene expression profiles with biologically consistent patterns. Automatically determined if set to NULL.}
+
+\item{tau1}{Scaling factor for lambda1, adjusting the strength of spatial regularization. Defaults to 0.1.}
+
+\item{tau2}{Scaling factor for lambda2, adjusting alignment with prior biological information. Defaults to 0.1.}
 
 \item{cutoff}{Cutoff value for cell type proportion to filter insignificant cell type contributions. Default is 0.05.}
 
@@ -55,7 +61,8 @@ spatial transcriptomics data.
 \dontrun{
 # Example usage:
 result <- MUR.STged(srt_exp = spatial_exp, ref_exp = reference_exp, beta.type = beta,
-                    W = spatial_weights, lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,
+                    W = spatial_weights, lambda1 = NULL, lambda2 = NULL,
+                    tau1 =0.1, tau2 =0.1,cutoff = 0.05,
                     epsilon = 1e-5, maxiter = 100)
 }
 }

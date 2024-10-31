@@ -44,9 +44,11 @@ model_results <- STged(sc_exp = sc_exp, sc_label = sc_label,
 
 \item{quantile_prob_bandwidth}{Bandwidth for the spatial kernel used in constructing the neighboring graph.}
 
-\item{lambda1}{Tuning parameter for balancing the graph regularization term. Automatically determined if set to NULL.}
+\item{lambda1}{Regularization parameter for the graph regularization term, controlling spatial smoothness across neighboring spots. Automatically determined if set to NULL.}
 
-\item{lambda2}{Tuning parameter for balancing the prior regularization term. Automatically determined if set to NULL.}
+\item{lambda2}{Regularization parameter for the prior regularization term, aligning estimated gene expression profiles with biologically consistent patterns. Automatically determined if set to NULL.}
+
+\item{tau2}{Scaling factor for lambda2, adjusting alignment with prior biological information. Defaults to 0.1.}
 
 \item{cutoff}{Cutoff value for cell type proportion to filter insignificant cell type contributions.}
 

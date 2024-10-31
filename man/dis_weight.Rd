@@ -37,7 +37,15 @@ connectivity and distances between spots. It supports only the 'Hex' method for
 defining spatial neighbors in a hexagonal grid system.
 }
 \examples{
-# Assuming `coordinates` is a matrix of spatial coordinates and `expression` is the corresponding expression data
+# Example usage:
+# Assuming `spot_loc` is a matrix of spatial coordinates
+# and `spot_exp` is the corresponding expression data:
 data(Fishplus)
-weights <- dis_weight(spot_loc = spot_loc, spot_exp = spot_exp, k = 6, method = "Hex", coord_type = "grid")
+weights <- dis_weight(
+  spot_loc = spot_loc,
+  spot_exp = spot_exp,
+  k = 6,
+  method = "Hex",
+  coord_type = "grid"
+)
 }
