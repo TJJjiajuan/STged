@@ -89,7 +89,7 @@ cleanCounts <- function(counts, gene_det_in_min_cells_per = 0.01, expression_thr
     if (verbose) message("Matrix filtered without scaling. Dimension: ", dim(counts))
     return(counts)
   } else {
-    sf = colSums(counts) 
+    sf = colSums(counts)
     scaled_counts = log(sweep(counts, 2, sf, FUN = "/") * depthscale + 1)
     if (verbose) message("Matrix scaled and log-transformed. Dimension: ", dim(scaled_counts))
     return(scaled_counts)
@@ -169,22 +169,47 @@ create_group_exp <- function(sc_exp, sc_label) {
 #'   - `weight_adj`: The unweighted adjacency matrix derived from spatial connectivity alone.
 #'
 #' @examples
-#' # Assuming `coordinates` is a matrix of spatial coordinates and `expression` is the corresponding expression data
+#' # Example usage:
+#' # Assuming `spot_loc` is a matrix of spatial coordinates
+#' # and `spot_exp` is the corresponding expression data:
 #' data(Fishplus)
-#' weights <- dis_weight(spot_loc = spot_loc, spot_exp = spot_exp, k = 6, method = "Hex", coord_type = "grid")
+#' weights <- dis_weight(
+#'   spot_loc = spot_loc,
+#'   spot_exp = spot_exp,
+#'   k = 6,
+#'   method = "Hex",
+#'   coord_type = "grid"
+#' )
 #' @export
 #'
 dis_weight <- function(spot_loc, spot_exp, k = 6, quantile_prob_bandwidth = 1/3, method = "Hex", coord_type = "grid") {
-  if (method != "Hex") {
-    stop("Unsupported method: Please choose 'Hex'")
-  }
+
 
   anndata <- reticulate::import("anndata")
   np <- reticulate::import("numpy")
   sq <- reticulate::import("squidpy")
 
+
+  if (method != "Hex") {
+    stop("Unsupported method: Please choose 'Hex'")
+  }
+
+
+  ##### normalize the coordinates without changing the shape and relative position
+  norm_cords = as.data.frame(spot_loc)
+  colnames(norm_cords)= c("x","y")
+  ## Checks whether the spot position is a character or a number
+  norm_cords$x =as.numeric(norm_cords$x)
+  norm_cords$y =as.numeric(norm_cords$y)
+
+  norm_cords$x = norm_cords$x - min(norm_cords$x)
+  norm_cords$y = norm_cords$y - min(norm_cords$y)
+
+  norm_cords$x = norm_cords$x / max(norm_cords$x)
+  norm_cords$y = norm_cords$y / max(norm_cords$y)
+
   # Convert location data into a suitable format for Anndata
-  obsm.meta <- list(spatial = as.matrix(as.data.frame(spot_loc)))
+  obsm.meta <- list(spatial = as.matrix(as.data.frame(norm_cords)))
 
   # Create an AnnData object using numpy's transpose function for expression data
   anndata_ST <- anndata$AnnData(X = t(spot_exp), obsm = obsm.meta)
@@ -216,6 +241,10 @@ dis_weight <- function(spot_loc, spot_exp, k = 6, quantile_prob_bandwidth = 1/3,
 }
 
 # Helper function to find quantiles of non-zero values
+#' @importFrom stats dist
+#' @importFrom stats quantile
+#' @importFrom stats sd
+
 non_zeros_quantile <- function(x, prob) {
   x_non_zero <- x[x > 0]
   if(length(x_non_zero) == 0) {
@@ -286,8 +315,6 @@ MUR = function(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_lis
                maxiter = maxiter){
 
 
-  timestart<-Sys.time()
-
   K = length(A_list)
 
   F_list = B_list
@@ -313,6 +340,7 @@ MUR = function(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_lis
 
   loss.all = obj.loss + sum(graph.reg.loss)
 
+  timestart<-Sys.time()
   ## the main algorithm
   obj.fun = c()
 
@@ -369,6 +397,7 @@ MUR = function(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_lis
 
   F.hat =  lapply(seq_along(F_list), function(x) {F_list[[x]]*A_adj[[x]] })
 
+  F.hat = lapply(seq_along(F.hat), function(x) { F.hat[[x]] * (srt_exp != 0) })
 
   srt_exp_est =  Reduce("+",  Map('*', F_list, A_list))
 
@@ -409,8 +438,10 @@ update.Fk = function(Fk_old = Fk_old, srt_exp = srt_exp, Rk = Rk,
 #' @param ref_exp A matrix of reference single-cell RNA-seq gene expression data (genes x cell types).
 #' @param beta.type A matrix describing the initial cell type proportions at each spot (spots x cell types).
 #' @param W A spatial weight matrix (spots x spots) describing the spatial correlation between spots.
-#' @param lambda1 Regularization parameter for the graph regularization term. Automatically determined if set to NULL.
-#' @param lambda2 Regularization parameter for the prior regularization term. Automatically determined if set to NULL.
+#' @param lambda1 Regularization parameter for the graph regularization term, controlling spatial smoothness across neighboring spots. Automatically determined if set to NULL.
+#' @param lambda2 Regularization parameter for the prior regularization term, aligning estimated gene expression profiles with biologically consistent patterns. Automatically determined if set to NULL.
+#' @param tau1 Scaling factor for lambda1, adjusting the strength of spatial regularization. Defaults to 0.1.
+#' @param tau2 Scaling factor for lambda2, adjusting alignment with prior biological information. Defaults to 0.1.
 #' @param cutoff Cutoff value for cell type proportion to filter insignificant cell type contributions. Default is 0.05.
 #' @param epsilon Convergence threshold for stopping the algorithm. Default is 1e-5.
 #' @param maxiter Maximum number of iterations allowed in the algorithm. Default is 100.
@@ -427,13 +458,15 @@ update.Fk = function(Fk_old = Fk_old, srt_exp = srt_exp, Rk = Rk,
 #' \dontrun{
 #' # Example usage:
 #' result <- MUR.STged(srt_exp = spatial_exp, ref_exp = reference_exp, beta.type = beta,
-#'                     W = spatial_weights, lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,
+#'                     W = spatial_weights, lambda1 = NULL, lambda2 = NULL,
+#'                     tau1 =0.1, tau2 =0.1,cutoff = 0.05,
 #'                     epsilon = 1e-5, maxiter = 100)
 #' }
 #' @export
 
 MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type,
-                     W = W,  lambda1 = lambda1, lambda2 = lambda2, cutoff = 0.05,
+                     W = W,  lambda1 = lambda1, lambda2 = lambda2,tau1 =0.1,
+                     tau2 =0.1,cutoff = 0.05,
                      epsilon = 1e-5, maxiter = 100){
 
 
@@ -471,7 +504,7 @@ MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
 
     for (k in 1:K){reg.loss[k] <-  sum(diag(t(B_list[[k]]*A_adj[[k]]) %*% (B_list[[k]]*A_adj[[k]] )%*% L))}
 
-    lambda1 = 0.5*obj.loss/sum(as.numeric(reg.loss))
+    lambda1 = tau1 * obj.loss/sum(as.numeric(reg.loss))
 
   }
   cat("Select value of lambda1", lambda1, "\n")
@@ -482,7 +515,7 @@ MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
 
     cat("tuning for lambda 2 in our algorithm...", "\n")
 
-    lambda2  = sd(ref_exp)
+    lambda2  = tau2 * sd(ref_exp)
   }
 
   cat("Select value of lambda2", lambda2, "\n")
@@ -491,9 +524,9 @@ MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
   cat("Run the main algorithm...", "\n")
 
   model.final = MUR(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_list,
-                     W = W , D = D,
-                     lambda1 = lambda1, lambda2 = lambda2, epsilon = epsilon,
-                     maxiter = maxiter)
+                    W = W , D = D,
+                    lambda1 = lambda1, lambda2 = lambda2, epsilon = epsilon,
+                    maxiter = maxiter)
 
 
   out = list(V.hat = model.final$F.hat, F_list = model.final$F_list ,
@@ -525,8 +558,10 @@ MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
 #' @param methodL Method used for constructing the spatial neighboring graph, details provided by the Squidpy package.
 #' @param coord_type Type of coordinates system used, e.g., 'grid' as described by Squidpy.
 #' @param quantile_prob_bandwidth Bandwidth for the spatial kernel used in constructing the neighboring graph.
-#' @param lambda1 Tuning parameter for balancing the graph regularization term. Automatically determined if set to NULL.
-#' @param lambda2 Tuning parameter for balancing the prior regularization term. Automatically determined if set to NULL.
+#' @param lambda1 Regularization parameter for the graph regularization term, controlling spatial smoothness across neighboring spots. Automatically determined if set to NULL.
+#' @param lambda2 Regularization parameter for the prior regularization term, aligning estimated gene expression profiles with biologically consistent patterns. Automatically determined if set to NULL.
+#' @param tau1 Scaling factor for lambda1, adjusting the strength of spatial regularization. Defaults to 0.1.
+#' @param tau2 Scaling factor for lambda2, adjusting alignment with prior biological information. Defaults to 0.1.
 #' @param cutoff Cutoff value for cell type proportion to filter insignificant cell type contributions.
 #' @param rho Penalty parameter in the ADMM algorithm, with adaptive adjustments.
 #' @param rho.incr Increment step for varying the penalty parameter rho.
@@ -540,16 +575,18 @@ MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
 STged <- function(sc_exp, sc_label, spot_exp, spot_loc, beta,
                   gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
                   nUMI = 100, verbose = FALSE, clean.only = FALSE, depthscale = 1e6,
-                  python_env,
+                  python_env = "python_env",
                   truncate = TRUE, qt = 0.0001, knei = 6, methodL = "Hex",
                   coord_type = "grid", quantile_prob_bandwidth = 1/3,
-                  lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,
+                  lambda1 = NULL, lambda2 = NULL, tau1 =0.1, tau2 =0.1,
+                  cutoff = 0.05,
                   maxiter = 100, epsilon = 1e-5) {
 
   if(is.null(python_env)) {
-    stop("Python environment path is not specified. Please provide a valid path.")
+    print("Python environment path is not specified. Please provide a valid path.")
   }
 
+  start_time <- Sys.time()
   if(verbose) cat("Data cleaning and preprocessing...\n")
   datax <- data_process(sc_exp = sc_exp, sc_label = sc_label, spot_exp = spot_exp, spot_loc = spot_loc,
                         gene_det_in_min_cells_per = gene_det_in_min_cells_per, expression_threshold = expression_threshold,
@@ -572,15 +609,19 @@ STged <- function(sc_exp, sc_label, spot_exp, spot_loc, beta,
   beta <- beta[colnames(datax$spot_exp), ]
 
   if(verbose) cat("Running the STged model...\n")
-  start_time <- Sys.time()
+  start_time_main <- Sys.time()
   model.est <- MUR.STged(srt_exp  = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,
                          W = L.mat$dis_weight,
-                         lambda1 =lambda1, lambda2= lambda2, cutoff = cutoff,
+                         lambda1 =lambda1, lambda2= lambda2,
+                         tau1 =tau1, tau2 =tau2,
+                         cutoff = cutoff,
                          epsilon =epsilon, maxiter = maxiter)
   end_time <- Sys.time()
 
-
-  if(verbose) cat("Total run time: ", end_time - start_time, " seconds.\n")
+  if(verbose){
+    cat("Total run time: ", end_time - start_time, " seconds.\n")
+    cat("Total run time of main algorithm: ", end_time - start_time_main, " seconds.\n")
+  }
 
   return(model.est)
 }
