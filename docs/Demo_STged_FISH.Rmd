@@ -1,0 +1,115 @@
+---
+title: "STged: Gene expression deconvolution in simulation study"
+output:
+  html_document: default
+  pdf_document: default
+  fontsize: 10pt
+author: Jia-Juan Tu
+---
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+# Set environment of Python modual
+```{r eval=FALSE, include=TRUE}
+library(reticulate)
+use_condaenv("ccnet", required = TRUE)
+#anndata <- reticulate::import("anndata")
+#np <- reticulate::import("numpy")
+#sq <- reticulate::import("squidpy")
+
+```
+
+## Load function
+```{r eval=FALSE, include=TRUE}
+
+library(STged)
+
+# load data sets
+data(Fishplus)
+
+dim(sc_exp)
+unique(sc_label)
+dim(spot_exp)
+
+head(spot_loc)
+
+```
+
+
+
+# Run STged step by step
+**Note**: There are three steps in STged. We here give a small example to show how to run the code step by step.
+
+## Step 1: clear data
+```{r eval=FALSE, include=TRUE}
+clean.only = FALSE
+depthscale  = 1e6
+datax = data_process(sc_exp = sc_exp,   sc_label = sc_label, 
+                     spot_exp = spot_exp,  spot_loc = spot_loc,
+                     depthscale = depthscale,  gene_det_in_min_cells_per = 0.01, 
+                     expression_threshold = 0,
+                     nUMI =  100, verbose = FALSE, clean.only = clean.only)
+
+```
+
+## Step 2: construct spatial correlation structures
+```{r eval=FALSE, include=TRUE}
+
+cat("Construct spatial correlation", "\n")
+L.mat <- dis_weight(spot_loc = datax$spot_loc, spot_exp = datax$spot_exp, k = 4,
+                    method = "Square", coord_type = "grid" )
+
+```
+
+## Step 3: construct reference gene matrix
+```{r eval=FALSE, include=TRUE}
+
+cat("Construct reference gene matrix", "\n")
+ref_exp = create_group_exp(sc_exp = datax$sc_exp, sc_label = datax$sc_label)
+
+#the corresponding cell type proportion
+beta =  beta[colnames(datax$spot_exp),]
+
+```
+
+
+## Step 4: run the main model
+```{r eval=FALSE, include=TRUE}
+cat("Run the STged", "\n")
+
+start_time <- Sys.time()
+stged.est = MUR.STged(srt_exp = datax$spot_exp, ref_exp = ref_exp, beta.type = beta,  W = L.mat$weight_adj, lambda1 = NULL, lambda2 = NULL,  cutoff = 0.05, epsilon = 1e-5,  
+                      maxiter = 100)
+
+end_time <- Sys.time()
+
+cat("Run time of STged", end_time - start_time," seconds.\n")
+
+
+```
+
+
+## Alternatively, we can run the STged in one step
+```{r eval=FALSE, include=TRUE}
+
+start_time <- Sys.time()
+model.est = STged(sc_exp = sc_exp, sc_label = sc_label, 
+                  spot_exp = spot_exp, spot_loc = spot_loc,  beta = beta,
+                  python_env = python_env,depthscale = 1e6,
+                  knei = 6,  methodL =  "Square",coord_type = "grid", 
+                  lambda1 = NULL, lambda2 = NULL, cutoff = 0.05, 
+                  maxiter = 500,  epsilon = 1e-5)
+
+end_time <- Sys.time()
+
+cat("Run time of STged", end_time - start_time," seconds.\n")
+
+
+```
+
+
