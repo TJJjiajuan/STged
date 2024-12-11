@@ -167,7 +167,7 @@ create_group_exp <- function(sc_exp, sc_label) {
 #' @return A list containing:
 #'   - `dis_weight`: The Gaussian-weighted adjacency matrix based on spatial distances and connectivity.
 #'   - `weight_adj`: The unweighted adjacency matrix derived from spatial connectivity alone.
-#'
+#' @importFrom stats dist quantile
 #' @examples
 #' # Assuming `coordinates` is a matrix of spatial coordinates
 #' # and `expression` is the corresponding expression data
@@ -419,6 +419,8 @@ MUR = function(srt_exp = srt_exp, A_list = A_list, A_adj = A_adj, B_list = B_lis
 
 
 ### update primal parameters
+#' Internal helper function for updating Fk
+#' @keywords internal
 update.Fk = function(Fk_old = Fk_old, srt_exp = srt_exp, Rk = Rk,
                      Ak = Ak, Bk = Bk,
                      Wk = Wk, Dk = Dk,
@@ -462,13 +464,13 @@ update.Fk = function(Fk_old = Fk_old, srt_exp = srt_exp, Rk = Rk,
 #'   \item{lambda2}{Selected value of lambda2.}
 #'   \item{beta}{Final estimated cell type proportions matrix (spots x cell types).}
 #'   \item{obj.loss}{Objective loss value of the final model.}
-#'
+#'@importFrom stats runif sd
 #' @examples
 #' \dontrun{
 #' # Example usage:
 #' result <- MUR.STged(srt_exp = spatial_exp, ref_exp = reference_exp, beta.type = beta,
 #'                     W = spatial_weights, lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,
-#'                     epsilon = 1e-5, maxiter = 100)
+#'                     epsilon = 1e-5, maxiter = 10)
 #' }
 #' @export
 
@@ -578,7 +580,8 @@ MUR.STged = function(srt_exp = srt_exp, ref_exp = ref_exp, beta.type = beta.type
 #' @param epsilon Convergence threshold for stopping the algorithm.
 #' @return A list containing model estimation results, including estimated parameters and diagnostics.
 ##'@usage model_results <- STged(sc_exp = sc_exp, sc_label = sc_label,
-#'                       spot_exp = spot_exp, spot_loc = spot_loc, beta = beta)
+#'                       spot_exp = spot_exp, spot_loc = spot_loc, beta = beta,
+#'                       maxiter = 10)
 #' @export
 STged <- function(sc_exp, sc_label, spot_exp, spot_loc, beta,
                   gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
