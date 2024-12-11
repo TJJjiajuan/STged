@@ -40,9 +40,8 @@ python_env <- 'C:/Users/visitor01/.conda/envs/stged/python.exe'
 model.est = STged(sc_exp, sc_label, spot_exp, spot_loc, beta,
                   gene_det_in_min_cells_per = 0.01, expression_threshold = 0,
                   nUMI = 100, verbose = FALSE, clean.only = FALSE, depthscale = 1e6,  python_env,
-                  truncate = TRUE, qt = 0.0001, knei = 6,  methodL = "Hex",
-                  coord_type = "grid", quantile_prob_bandwidth = 1/3,
-                  lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,
+                  truncate = TRUE, qt = 0.0001, knei =4,  methodL = "Square",
+                  coord_type = "grid", lambda1 = NULL, lambda2 = NULL, cutoff = 0.05,
                   maxiter = 100, epsilon = 1e-5) 
 
 ```
